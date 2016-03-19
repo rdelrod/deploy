@@ -1,0 +1,28 @@
+{
+  "name": "deploy",
+  "version": "1.0.0",
+  "description": "A Simple Github Webhook Deployment System",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdelrod/deploy.git"
+  },
+  "keywords": [
+    "deploy",
+    "ci",
+    "testing"
+  ],
+  "author": "Jared Allard <jaredallard@outlook.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rdelrod/deploy/issues"
+  },
+  "homepage": "https://github.com/rdelrod/deploy#readme",
+  "dependencies": {
+    "express": "^4.13.4",
+    "githubhook": "^1.4.0"
+  }
+}
