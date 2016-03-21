@@ -27,6 +27,8 @@
     "githubhook": "^1.4.0",
     "nodegit": "^0.11.9",
     "pm2": "^1.0.2",
+    "request": "^2.69.0",
+    "request-replay": "^1.0.3",
     "socket.io": "^1.4.5"
   }
 }

@@ -2,6 +2,7 @@
   "githubhook": {
     "host": "0.0.0.0",
     "port": 9000,
+    "branch": "refs/heads/production",
     "path": "/event"
   },
   "express": {
@@ -40,7 +41,7 @@
       "on": [
         "deploy"
       ],
-      "uri": "http://127.0.0.1:8302"
+      "uri": "http://127.0.0.1:8302/event"
     }
   ]
 }
