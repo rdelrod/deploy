@@ -8,7 +8,13 @@
 
 'use strict';
 
-let express = require('express'),
+let   pmx     = require('pmx');
+pmx.init({
+  http: true,
+  network: true
+});
+
+let   express = require('express'),
       request = require('request'),
       fs      = require('fs'),
       replay  = require('request-replay'),
