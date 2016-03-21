@@ -6,7 +6,7 @@
   },
   "rules": {
     /* Possible Errors */
-    "no-extra-parens": 2,
+    "no-extra-parens": 1,
     "valid-jsdoc": 2,
     /* Best Practices */
     "block-scoped-var": 2,
@@ -33,7 +33,7 @@
     /* Variables */
     "no-catch-shadow": 2,
     /* Node.JS */
-    "no-sync": 2,
+    "no-sync": 0,
     /* Stylistic Issues */
     "no-mixed-spaces-and-tabs": 2,
     "no-underscore-dangle": 2,

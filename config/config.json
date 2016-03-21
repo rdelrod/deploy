@@ -7,5 +7,40 @@
   "express": {
     "host": "0.0.0.0",
     "port": 9001
-  }
+  },
+  "deployments": [
+    {
+      "name": "digibotv2",
+      "type": "nodejs",
+      "path": "/home/rylor/Code/rdelrod/digibotv2",
+      "main": "index.js"
+    },
+    {
+      "name": "mc-api",
+      "type": "nodejs",
+      "pm2": {
+        "opts": {
+          "exec_mode": "cluster",
+          "instances": 4
+        }
+      },
+      "path": "/home/rylor/Code/rdelrod/mc-api",
+      "main": "index.js"
+    },
+    {
+      "name": "mcfd",
+      "type": "nodejs",
+      "path": "/home/rylor/Code/rdelrod/mcfd",
+      "main": "index.js"
+    }
+  ],
+  "listeners": [
+    {
+      "type": "webhook",
+      "on": [
+        "deploy"
+      ],
+      "uri": "http://127.0.0.1:8302"
+    }
+  ]
 }
