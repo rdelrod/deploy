@@ -336,9 +336,16 @@ process.on('SIGINT', function() {
 process.on('exit', function(code) {
   slog('EXITING: THIS IS BAD.');
 
-  pm2.list((p) => {
-    slog('pm2: stop', p.name);
-    pm2.stop(p.name);
+  pm2.list((err, p) => {
+    if(err) {
+      log('pm2', 'Failed to stop remaining processes.')
+      return;
+    }
+
+    p.forEach(function(proc) {
+      slog('pm2: stop', proc.name);
+      pm2.stop(proc.name);
+    });
   });
   // do logic to determine if crash or etc.
   slog('exit code:', code);
