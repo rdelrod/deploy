@@ -13,7 +13,7 @@
     {
       "name": "digibotv2",
       "type": "nodejs",
-      "path": "/home/mc/Code/rdelrod/digibotv2",
+      "path": "/home/mc/rdelrod/digibotv2",
       "main": "index.js"
     },
     {
@@ -25,13 +25,13 @@
           "instances": 4
         }
       },
-      "path": "/home/mc/Code/rdelrod/mc-api",
+      "path": "/home/mc/rdelrod/mc-api",
       "main": "index.js"
     },
     {
       "name": "mcfd",
       "type": "nodejs",
-      "path": "/home/mc/Code/rdelrod/mcfd",
+      "path": "/home/mc/rdelrod/mcfd",
       "main": "index.js"
     }
   ],
