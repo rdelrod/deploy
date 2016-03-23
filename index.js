@@ -70,7 +70,7 @@ const extend = (target, source) => {
  *
  * @returns {undefined} nothing
  **/
-const sendEvent = (event, repo, data) => {
+const sendEvent = function(event, repo, data) {
   if(event === 'status') {
     if(data.inprogress) {
       global.STATUS = 'running';
@@ -80,7 +80,7 @@ const sendEvent = (event, repo, data) => {
   }
 
   // send the event
-  io.emit(event, {
+  io.sockets.emit(event, {
     event: event,
     repo: repo,
     data: data
