@@ -9,32 +9,37 @@
     "host": "0.0.0.0",
     "port": 9001
   },
+  "socket": {
+    "path": "/realtime"
+  },
   "deployments": [
     {
       "name": "digibotv2",
-      "type": "nodejs",
-      "path": "/home/mc/rdelrod/digibotv2",
+      "path": "/home/rylor/Code/rdelrod/digibotv2",
       "main": "index.js"
     },
     {
       "name": "mc-api",
-      "type": "nodejs",
       "pm2": {
         "opts": {
           "exec_mode": "cluster",
           "instances": 4
         }
       },
-      "path": "/home/mc/rdelrod/mc-api",
+      "path": "/home/rylor/Code/rdelrod/mc-api",
       "main": "index.js"
     },
     {
       "name": "mcfd",
-      "type": "nodejs",
-      "path": "/home/mc/rdelrod/mcfd",
+      "path": "/home/rylor/Code/rdelrod/mcfd",
       "main": "index.js"
     }
   ],
+  "global": {
+    "post": [
+      "npm install --verbose"
+    ]
+  },
   "listeners": [
     {
       "type": "webhook",

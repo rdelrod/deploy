@@ -8,29 +8,52 @@
 
 'use strict';
 
-let   pmx     = require('pmx');
+let   pmx     = require('pmx'),
+      request = require('request'),
+      replay  = require('request-replay'),
+      async   = require('async'),
+      nodegit = require('nodegit'),
+      spawn   = require('child_process').spawn,
+      path    = require('path'),
+      github  = require('githubhook'),
+      pm2     = require('pm2');
+
+// early init pmx
 pmx.init({
   http: true,
   network: true
 });
 
-let   express = require('express'),
-      request = require('request'),
-      fs      = require('fs'),
-      replay  = require('request-replay'),
-      async   = require('async'),
-      nodegit = require('nodegit'),
-      path    = require('path'),
-      github  = require('githubhook'),
-      pm2     = require('pm2');
 
 // our libraries.
-const log     = require('./lib/log.js');
+const log     = require('./lib/log.js'),
+      io      = require('./lib/web.js');
+
+// load the config
+const config  = require('./config/config.json');
+
+// instance our APIs
+const hook    = github(config.githubhook);
+
+/**
+ * log symlink to act as deploy "thread"
+ *
+ * @returns {undefined} nothing!
+ **/
 const slog    = function() {
   const args = Array.prototype.slice.call(arguments, 0);
   args.unshift('deploy');
   log.apply(log, args);
 }
+
+/**
+ * Join an array.
+ *
+ * @param {Array} target - array to insert into
+ * @param {Array} source - array to inject into insert.
+ *
+ * @returns {Array} combined array.
+ **/
 const extend = (target, source) => {
     for (let prop in source) {
       target[prop] = source[prop];
@@ -38,106 +61,26 @@ const extend = (target, source) => {
     return target;
 }
 
-const config  = require('./config/config.json');
-
-// instance our APIs
-const app     = express();
-const hook    = github(config.githubhook);
-
-const LOGDIR  = path.join(__dirname, 'logs');
-
-if(!fs.existsSync(LOGDIR)) {
-  fs.mkdirSync(LOGDIR);
-} else {
-  let logs = fs.readdirSync(LOGDIR);
-  logs.forEach(function(v) {
-    let fullpath = path.join(LOGDIR, v);
-    fs.unlinkSync(fullpath);
-  })
-}
-
-pm2.connect(function(err) {
-  if (err) {
-    console.error(err);
-    process.exit(2);
-  }
-
-  log('deploy:pm2', 'daemon started.');
-
-  config.deployments.forEach(function(v) {
-    let spath = v.path;
-    let sname = v.name;
-    let smain = v.main;
-
-    let spm2   = v.pm2;
-    let opts  = { // to make pm2
-      script: path.join(spath, smain),
-      name: sname,
-      cwd: spath,
-      exec_mode: 'fork'
-    }
-
-    // check for pm2 override / additions
-    if(spm2) {
-      opts = extend(opts, spm2.opts);
-    }
-
-    log('deploy:pm2', 'start', sname);
-    pm2.start(opts, function(err) {
-      if(err) {
-        sendEvent('error', sname, {
-          reason: 'Failed To Launch',
-          stage: 'init'
-        })
-        return log('deploy:pm2', 'app:', sname, 'failed to start with:', err);
-      }
-    });
-  });
-});
-
-let   STATUS             = 'idle',
-      RUNNINGDEPLOYMENTS = [];
-
-// Setup the REST API
-app.get('/', function(req, res) {
-  return res.send({
-    success: false,
-    reason: 'NOTFOUND'
-  });
-});
-
 /**
- * /status
+ * Send events.
  *
- * Get The Deployment status
+ * @param {String} event  - event name
+ * @param {String} repo   - repository name
+ * @param {Variable} data - data to send with event.
+ *
+ * @returns {undefined} nothing
  **/
-app.get('/status', function(req, res) {
-  return res.send({
-    status: STATUS,
-    running: RUNNINGDEPLOYMENTS
-  });
-});
-
-// Inject Socket.io for realtime updates.
-let server = require('http').createServer(app);
-server.path= '/realtime';
-
-let io = require('socket.io')(server);
-io.on('connection', function() {
-  log('socket', 'recieved a connection')
-});
-
 const sendEvent = (event, repo, data) => {
   if(event === 'status') {
     if(data.inprogress) {
-      STATUS = 'running';
+      global.STATUS = 'running';
     } else {
-      STATUS = 'idle';
+      global.STATUS = 'idle';
     }
   }
 
   // send the event
-  io.emit({
+  io.emit(event, {
     event: event,
     repo: repo,
     data: data
@@ -146,6 +89,7 @@ const sendEvent = (event, repo, data) => {
   config.listeners.forEach(function(listener) {
     log('event', 'send event', event, 'to', listener.uri);
 
+    // wrap request in replay for if it goes down.
     replay(request(listener.uri, {
       method: 'post',
       body: {
@@ -157,22 +101,86 @@ const sendEvent = (event, repo, data) => {
         }
       },
       json: true
-    }, function (err, response, body) {
-
     }), {
       retries: 10,
       factor: 3
     })
-    .on('replay', function (replay) {
-      // "replay" is an object that contains some useful information
-      console.log('request failed: ' + replay.error.code + ' ' + replay.error.message);
-      console.log('replay nr: #' + replay.number);
-      console.log('will retry in: ' + replay.delay + 'ms')
+    .on('replay', function() {
     });
   });
 }
 
-server.listen(config.express.port);
+/**
+ * Connect to our PM2 daemon
+ *
+ * This is the "startup" function.
+ **/
+pm2.connect(function(err) {
+  if (err) {
+    console.error(err);
+    process.exit(1);
+  }
+
+  global.status = 'init';
+  log('deploy:pm2', 'daemon started.');
+
+  /**
+   * Grab the list of running pm2 process.
+   **/
+  pm2.list((err, list) => {
+    let running = {};
+    list.forEach((proc) => {
+      let status = proc.pm2_env.status;
+
+      // default value.
+      running[proc.name] = false;
+      if(status !== 'stopped') {
+        running[proc.name] = true;
+      }
+
+      log('deploy:pm2', proc.name, 'is', status);
+    })
+
+    /**
+     * Start a new pm2 process for our deployments.
+     **/
+    config.deployments.forEach(function(v) {
+      let spath = v.path;
+      let sname = v.name;
+      let smain = v.main;
+
+      if(running[sname]) { // check if it's already running
+        return;
+      }
+
+      let spm2   = v.pm2;
+      let opts  = { // to make pm2
+        script: path.join(spath, smain),
+        name: sname,
+        cwd: spath,
+        exec_mode: 'fork'
+      }
+
+      // check for pm2 override / additions
+      if(spm2) {
+        opts = extend(opts, spm2.opts);
+      }
+
+      log('deploy:pm2', 'start', sname);
+      pm2.start(opts, function(err) {
+        if(err) {
+          sendEvent('error', sname, {
+            reason: 'Failed To Launch',
+            stage: 'init'
+          })
+          return log('deploy:pm2', 'app:', sname, 'failed to start with:', err);
+        }
+      });
+    });
+  });
+
+  global.status = 'idle';
+});
 
 // trigger on push event.
 hook.on('push', function (repo, ref) {
@@ -184,13 +192,6 @@ hook.on('push', function (repo, ref) {
     inprogress: true
   });
 
-  // push the code to our running table.
-  RUNNINGDEPLOYMENTS.push({
-    name: repo,
-    status: 'running',
-    started: Date.now()
-  });
-
   let deployConfig = false;
   config.deployments.forEach((v) => {
     if(v.name === repo) {
@@ -199,10 +200,12 @@ hook.on('push', function (repo, ref) {
   });
 
   if(!deployConfig) {
+    sendEvent('deploy', 'Deploy isn\'t configured to deploy this repo! :(')
     return log('githubhook', 'Not configured.');
   }
 
-  // get our forever context
+
+  // Run through the deployment system
   async.waterfall([
     /**
      * Verify we're on the right branch.
@@ -278,6 +281,57 @@ hook.on('push', function (repo, ref) {
     },
 
     /**
+     * Run post instructions
+     **/
+    function(proc, next) {
+      let cobj = false;
+      config.deployments.forEach(function(v) {
+        if(v.name === repo) {
+          cobj = v;
+        }
+      });
+
+      if(!cobj) {
+        return next('Failed to obtain config object.');
+      }
+
+      // check if it even has post instructions.
+      if(cobj.post === undefined) {
+        cobj.post = [];
+      }
+
+      let post = extend(cobj.post, config.global.post);
+      log('github:post', 'running post code.');
+      async.each(post, (cmdstr, cb) => {
+        let opts = cmdstr.split(' ');
+        let cmd  = opts.shift();
+
+        sendEvent('deploy', '$ '+cmdstr);
+
+        // spawn the process
+        let postc = spawn(cmd, opts, {
+          cwd: cobj.path
+        });
+
+        postc.stdout.on('data', (data) => {
+          data = data.toString('utf8');
+          sendEvent('deploy', data);
+        })
+
+        postc.stderr.on('data', (data) => {
+          data = data.toString('utf8');
+          sendEvent('deploy', data);
+        })
+
+        postc.on('exit', () => {
+          return cb();
+        })
+      }, (err) => {
+        return next(err, proc);
+      })
+    },
+
+    /**
      * Restart the Script
      **/
      function(proc, next) {
@@ -294,18 +348,6 @@ hook.on('push', function (repo, ref) {
        })
      }
   ], function(err) {
-
-    // Remove the deployment regardless of status
-    let index = false;
-    RUNNINGDEPLOYMENTS.forEach((v, i) => {
-      if(v.name === repo) {
-        index = i;
-      }
-    })
-
-    log('github:express', 'Found RUNNINGDEPLOYMENTS#'+index, 'for pm2', repo);
-    RUNNINGDEPLOYMENTS.splice(index, 1);
-
     if(err) {
       sendEvent('deploy', repo, 'deploy failed.');
       sendEvent('status', repo, {
@@ -333,26 +375,13 @@ hook.listen();
 
 slog('initialized')
 
-process.on('SIGINT', function() {
+process.on('SIGINT', () => {
   console.log();
   slog('CTRL-C');
   process.exit();
 });
 
-process.on('exit', function(code) {
+process.on('exit', () => {
   slog('EXITING: THIS IS BAD.');
-
-  pm2.list((err, p) => {
-    if(err) {
-      log('pm2', 'Failed to stop remaining processes.')
-      return;
-    }
-
-    p.forEach(function(proc) {
-      slog('pm2: stop', proc.name);
-      pm2.stop(proc.name);
-    });
-  });
-  // do logic to determine if crash or etc.
-  slog('exit code:', code);
+  pm2.disconnect();
 });
