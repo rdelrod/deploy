@@ -306,7 +306,7 @@ hook.on('push', function (repo, ref) {
         let opts = cmdstr.split(' ');
         let cmd  = opts.shift();
 
-        sendEvent('deploy', repo, '$ '+cmdstr);
+        sendEvent('deploy', repo, '---> EXEC: $ '+cmdstr);
 
         // spawn the process
         let postc = spawn(cmd, opts, {
@@ -324,6 +324,7 @@ hook.on('push', function (repo, ref) {
         })
 
         postc.on('exit', () => {
+          sendEvent('deploy', '\n');
           return cb();
         })
       }, (err) => {
@@ -362,7 +363,7 @@ hook.on('push', function (repo, ref) {
     }
 
     log('githubhook', 'deployed successfully.');
-    sendEvent('deploy', repo, 'deploy finised.');
+    sendEvent('deploy', repo, 'deploy finished.');
     sendEvent('status', repo, {
       inprogress: false,
       success: true
