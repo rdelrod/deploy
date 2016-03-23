@@ -186,7 +186,7 @@ pm2.connect(function(err) {
 hook.on('push', function (repo, ref) {
   log('githubhook', repo, 'push event');
 
-  sendEvent('deploy', 'recieved deploy request for: '+repo)
+  sendEvent('deploy', repo, 'recieved deploy request for: '+repo)
 
   sendEvent('status', repo, {
     inprogress: true
@@ -200,7 +200,7 @@ hook.on('push', function (repo, ref) {
   });
 
   if(!deployConfig) {
-    sendEvent('deploy', 'Deploy isn\'t configured to deploy this repo! :(')
+    sendEvent('deploy', repo, 'Deploy isn\'t configured to deploy this repo! :(')
     return log('githubhook', 'Not configured.');
   }
 
@@ -306,7 +306,7 @@ hook.on('push', function (repo, ref) {
         let opts = cmdstr.split(' ');
         let cmd  = opts.shift();
 
-        sendEvent('deploy', '$ '+cmdstr);
+        sendEvent('deploy', repo, '$ '+cmdstr);
 
         // spawn the process
         let postc = spawn(cmd, opts, {
@@ -315,12 +315,12 @@ hook.on('push', function (repo, ref) {
 
         postc.stdout.on('data', (data) => {
           data = data.toString('utf8');
-          sendEvent('deploy', data);
+          sendEvent('deploy', repo, data);
         })
 
         postc.stderr.on('data', (data) => {
           data = data.toString('utf8');
-          sendEvent('deploy', data);
+          sendEvent('deploy', repo, data);
         })
 
         postc.on('exit', () => {
