@@ -323,7 +323,11 @@ hook.on('push', function (repo, ref) {
           sendEvent('deploy', repo, data);
         })
 
-        postc.on('exit', () => {
+        postc.on('exit', (c) => {
+          if(c !== 0) {
+            return cb('non-zero exit code.');
+          }
+          
           sendEvent('deploy', '\n');
           return cb();
         })
