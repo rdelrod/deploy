@@ -15,7 +15,7 @@
   "deployments": [
     {
       "name": "digibotv2",
-      "path": "/home/rylor/Code/rdelrod/digibotv2",
+      "path": "/home/mc/rdelrod/digibotv2",
       "main": "index.js"
     },
     {
@@ -26,12 +26,12 @@
           "instances": 4
         }
       },
-      "path": "/home/rylor/Code/rdelrod/mc-api",
+      "path": "/home/mc//rdelrod/mc-api",
       "main": "index.js"
     },
     {
       "name": "mcfd",
-      "path": "/home/rylor/Code/rdelrod/mcfd",
+      "path": "/home/mc/rdelrod/mcfd",
       "main": "index.js"
     }
   ],
