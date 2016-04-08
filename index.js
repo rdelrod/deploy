@@ -327,7 +327,7 @@ hook.on('push', function (repo, ref) {
           if(c !== 0) {
             return cb('non-zero exit code.');
           }
-          
+
           sendEvent('deploy', '\n');
           return cb();
         })
